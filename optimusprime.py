@@ -641,10 +641,7 @@ class IntelligentTRIMScheduler:
     def execute_trim(self):
         if self.should_execute_trim():
             try:
-                for part in psutil.disk_partitions(all=False):
-                    if 'cdrom' in part.opts or part.fstype == '':
-                        continue
-                    pass 
+                subprocess.run(['defrag', '/C', '/L', '/H'], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW, timeout=60)
                 self.last_trim = time.time()
             except Exception:
                 pass
@@ -687,7 +684,7 @@ class PrefetchOptimizer:
             for drive in drives:
                 drive_type = win32file.GetDriveType(drive)
                 if drive_type == win32file.DRIVE_FIXED:
-                    pass
+                    return True
         except Exception:
             pass
         return False
@@ -4315,9 +4312,16 @@ class TCPCongestionControlTuner:
 
     def _apply_tcp_settings(self, algorithm):
         key_path = r'SYSTEM\CurrentControlSet\Services\Tcpip\Parameters'
+        algo_map = {
+            'reno': 0,
+            'cubic': 1,
+            'bbr': 2
+        }
+        val = algo_map.get(algorithm, 1)
+        
         try:
             with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_SET_VALUE) as key:
-                winreg.SetValueEx(key, 'TcpCongestionControl', 0, winreg.REG_DWORD, 1) # 1 = CTCP
+                winreg.SetValueEx(key, 'TcpCongestionControl', 0, winreg.REG_DWORD, val)
         except:
             pass
 
@@ -5831,3 +5835,6 @@ def main() -> None:
     tray = SystemTrayManager(manager, manager.temp_monitor)
     print('Tray created. Running tray...')
     tray.run()
+
+if __name__ == "__main__":
+    main()
