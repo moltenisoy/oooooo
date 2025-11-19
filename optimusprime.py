@@ -1818,11 +1818,19 @@ class WorkingSetOptimizer:
             
             return False
 
-    def trim_working_set(self, pid, current_memory_mb=None):
+    def trim_working_set(self, pid, current_memory_mb=None, is_gaming_process=False):
         with self.lock:
+            tracking = self.foreground_tracking.get(pid, {})
+            if tracking.get('is_foreground', False) or is_gaming_process:
+                return {'success': False, 'reason': 'foreground_or_gaming_protection'}
+
             result = {'success': False, 'memory_freed_mb': 0.0, 'effectiveness': 0.0}
             try:
                 process = psutil.Process(pid)
+                
+                if process.cpu_percent(interval=0.1) > 5.0:
+                     return {'success': False, 'reason': 'active_cpu_usage'}
+
                 if current_memory_mb is None:
                     current_memory_mb = process.memory_info().rss / (1024 * 1024)
                 
@@ -2201,7 +2209,7 @@ class AdvancedTimerCoalescer:
                     next_wake = data['next_execution']
             
             if next_wake == float('inf'):
-                return 1.0  s
+                return 1.0
                 
             sleep_time = (next_wake - current_time) / 1000.0
             return max(0.001, sleep_time)
