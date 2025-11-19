@@ -183,6 +183,20 @@ QUOTA_LIMITS_HARDWS_MAX_ENABLE = 2
 
 SystemResponsivenessKey = r'SYSTEM\CurrentControlSet\Control\PriorityControl'
 
+class _LockStatsMixin:
+    def _init_lock_stats(self):
+        if not hasattr(self, 'lock'):
+            self.lock = threading.RLock()
+        if not hasattr(self, 'stats'):
+            self.stats = {}
+    
+    def _safe_lock_call(self, func, *args, **kwargs):
+        with self.lock:
+            return func(*args, **kwargs)
+    
+    def _get_stats_copy(self):
+        with self.lock:
+            return self.stats.copy()
 
 class PROCESS_POWER_THROTTLING_STATE(ctypes.Structure):
     _fields_ = [('Version', wintypes.ULONG),
@@ -668,7 +682,7 @@ class NCQOptimizer:
             except OSError:
                 pass
 
-class PrefetchOptimizer:
+class PrefetchOptimizer(_LockStatsMixin):
     def __init__(self, hardware_detector=None):
         self.lock = threading.RLock()
         self.prefetch_path = r'C:\Windows\Prefetch'
@@ -721,10 +735,9 @@ class PrefetchOptimizer:
             return False
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class StorageOptimizer:
+class StorageOptimizer(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.stats = {'optimizations_applied': 0, 'trim_scheduled': 0}
@@ -822,7 +835,7 @@ class WriteCoalescingManager:
                 return True
             return False
 
-class AWEManager:
+class AWEManager(_LockStatsMixin):
     def __init__(self, handle_cache):
         self.handle_cache = handle_cache
         self.lock = threading.RLock()
@@ -860,10 +873,9 @@ class AWEManager:
             return False
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class AdvancedMemoryPagePriorityManager:
+class AdvancedMemoryPagePriorityManager(_LockStatsMixin):
     def __init__(self, handle_cache):
         self.lock = threading.RLock()
         self.handle_cache = handle_cache
@@ -1328,7 +1340,7 @@ class MemoryDeduplicationManager:
             except (subprocess.SubprocessError, OSError):
                 return False
 
-class MemoryPriorityManager:
+class MemoryPriorityManager(_LockStatsMixin):
     def __init__(self, handle_cache):
         self.handle_cache = handle_cache
         self.lock = threading.RLock()
@@ -1373,10 +1385,9 @@ class MemoryPriorityManager:
             return False
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class MemoryScrubbingOptimizer:
+class MemoryScrubbingOptimizer(_LockStatsMixin):
     IDLE_CPU_THRESHOLD = 20
     SCRUB_INTERVAL = 3600
 
@@ -1763,7 +1774,7 @@ class TLBOptimizer:
                 pass
         return False
 
-class WorkingSetOptimizer:
+class WorkingSetOptimizer(_LockStatsMixin):
     def __init__(self, handle_cache):
         self.handle_cache = handle_cache
         self.trim_history = defaultdict(deque)
@@ -1897,10 +1908,9 @@ class WorkingSetOptimizer:
             }
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class AVXInstructionOptimizer:
+class AVXInstructionOptimizer(_LockStatsMixin):
     def __init__(self, handle_cache, cpu_count):
         self.lock = threading.RLock()
         self.handle_cache = handle_cache
@@ -2244,7 +2254,7 @@ class AutomaticProfileManager:
         with self.lock:
             return self.profiles.get(profile_name, self.profiles[self.current_profile])
 
-class CPUFrequencyScaler:
+class CPUFrequencyScaler(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.stats = {'turbo_enabled': 0, 'downclocking_enabled': 0, 'frequency_changes': 0}
@@ -2263,10 +2273,9 @@ class CPUFrequencyScaler:
             return True
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class CPUParkingController:
+class CPUParkingController(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.stats = {'total_parking_changes': 0, 'disabled_count': 0, 'enabled_count': 0}
@@ -2288,10 +2297,9 @@ class CPUParkingController:
             return True
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class CPUPinningEngine:
+class CPUPinningEngine(_LockStatsMixin):
     def __init__(self, handle_cache, cpu_count, numa_topology=None):
         self.handle_cache = handle_cache
         self.cpu_count = cpu_count
@@ -2597,7 +2605,7 @@ class CStatesOptimizer:
             self.c_states_disabled = False
             return True
 
-class ContextSwitchReducer:
+class ContextSwitchReducer(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.quantum_adjusted = False
@@ -2626,7 +2634,7 @@ class ContextSwitchReducer:
         with self.lock:
             return self.stats.copy()
 
-class DPCLatencyController:
+class DPCLatencyController(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.stats = {'dpc_optimizations': 0, 'latency_improvements': 0, 'monitoring_active': False}
@@ -2656,7 +2664,7 @@ class DPCLatencyController:
         with self.lock:
             return self.stats.copy()
 
-class DynamicMultiLayerProfileSystem:
+class DynamicMultiLayerProfileSystem(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.current_scenario = 'browsing'
@@ -2934,7 +2942,7 @@ class EnhancedSystemResponsivenessOptimizer:
         with self.lock:
             return {'current_responsiveness': self.current_responsiveness, 'active_boosts': len(self.boosted_processes), 'total_responsiveness_changes': self.stats['responsiveness_changes'], 'total_priority_boosts': self.stats['priority_boosts'], 'total_background_throttles': self.stats['background_throttles'], 'estimated_overhead': 0.05}
 
-class ForegroundDebouncer:
+class ForegroundDebouncer(_LockStatsMixin):
     def __init__(self, debounce_time_ms=300, hysteresis_time_ms=150, whitelist_debounce_ms=150):
         self.debounce_time = debounce_time_ms / 1000.0
         self.hysteresis_time = hysteresis_time_ms / 1000.0
@@ -3022,7 +3030,7 @@ class ForegroundDebouncer:
             cancel_rate = self.stats['total_cancelled'] / self.stats['total_requests'] * 100 if self.stats['total_requests'] > 0 else 0
             return {**self.stats, 'cancel_rate_percent': cancel_rate, 'pending': self.pending_change is not None}
 
-class HeterogeneousThreadScheduler:
+class HeterogeneousThreadScheduler(_LockStatsMixin):
     def __init__(self, handle_cache, p_cores, e_cores):
         self.handle_cache = handle_cache
         self.p_cores = p_cores
@@ -3084,10 +3092,9 @@ class HeterogeneousThreadScheduler:
             return threads_scheduled > 0
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class InterruptAffinityOptimizer:
+class InterruptAffinityOptimizer(_LockStatsMixin):
     def __init__(self, e_cores):
         self.e_cores = e_cores
         self.lock = threading.RLock()
@@ -3115,10 +3122,9 @@ class InterruptAffinityOptimizer:
                 return False
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class KernelOptimizer:
+class KernelOptimizer(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.stats = {'optimizations_applied': 0}
@@ -3187,7 +3193,7 @@ class PowerManagementOptimizer:
             except:
                 return False
 
-class ProcessServiceManager:
+class ProcessServiceManager(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.database = {}
@@ -3245,10 +3251,9 @@ class ProcessServiceManager:
         return (False, None)
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class ProcessSnapshotEngine:
+class ProcessSnapshotEngine(_LockStatsMixin):
     def __init__(self, cache_ttl_ms=500):
         self.cache_ttl_ms = cache_ttl_ms
         self.last_snapshot_time = 0
@@ -3322,8 +3327,7 @@ class ProcessSnapshotEngine:
         return [info['pid'] for info in snapshot.values() if info['name'].lower() == process_name_lower]
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
 class ProcessSuspensionManager:
     __slots__ = ('suspended_processes', 'inactivity_threshold', 'lock', 'stats', 'suspension_decision_cache')
@@ -3383,7 +3387,7 @@ class ProcessSuspensionManager:
                     pass
             return False
 
-class ProcessTreeCache:
+class ProcessTreeCache(_LockStatsMixin):
     def __init__(self, rebuild_interval_ms=2000):
         self.rebuild_interval = rebuild_interval_ms / 1000.0
         self.last_rebuild = 0
@@ -3503,10 +3507,9 @@ class ProcessTreeCache:
             return build_subtree(root_pid)
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class RealtimePriorityManager:
+class RealtimePriorityManager(_LockStatsMixin):
     GLITCH_DETECTION_THRESHOLD = 0.001
     GLITCH_COUNT_THRESHOLD = 3
     
@@ -3560,7 +3563,7 @@ class RealtimePriorityManager:
                     pass
             return False
 
-class SMTScheduler:
+class SMTScheduler(_LockStatsMixin):
     def __init__(self, cpu_count):
         self.cpu_count = cpu_count
         self.lock = threading.RLock()
@@ -3632,10 +3635,9 @@ class SMTScheduler:
             return False
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class SettingsApplicator:
+class SettingsApplicator(_LockStatsMixin):
     def __init__(self, handle_cache, ctypes_pool=None):
         self.handle_cache = handle_cache
         self.ctypes_pool = ctypes_pool
@@ -3807,10 +3809,9 @@ class SettingsApplicator:
         return threads_set > 0
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class SystemResponsivenessController:
+class SystemResponsivenessController(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.current_value = 20
@@ -5079,6 +5080,9 @@ class UnifiedProcessManager:
         self.network_polling = NetworkPollingOptimizer()
         self.io_priority_inheritance = IOPriorityInheritance(self.handle_cache)
         self.thermal_scheduler = ThermalAwareScheduler(self.cpu_count, self.temp_monitor)
+        self.adaptive_io_scheduler = AdaptiveIOScheduler(self.handle_cache)
+        self.advanced_memory_page_manager = AdvancedMemoryPagePriorityManager(self.handle_cache)
+        self.cache_topology_optimizer = EnhancedCacheTopologyOptimizer(self.topology)
         
         self._registry_buffer = RegistryWriteBuffer()
         self._ctypes_pool = CTypesStructurePool()
@@ -5129,6 +5133,11 @@ class UnifiedProcessManager:
         
         if self.hardware_detector.has_nvme():
             self.ncq_optimizer.set_queue_depth_for_gaming(False)
+        
+        self.io_priority_inheritance.enable()
+        self.io_priority_inheritance.set_priority_levels(5)
+        self.io_priority_inheritance.enable_priority_boosting()
+        self.io_priority_inheritance.configure_inheritance_chain()
 
     def manage_thermal_throttling(self):
         if self.thermal_scheduler.predict_and_prevent_throttling():
@@ -5162,6 +5171,9 @@ class UnifiedProcessManager:
         self.timer_coalescer.register_task('decision_cache_cleanup', interval_ms=60000, priority=2)
         self.timer_coalescer.register_task('process_suspension_check', interval_ms=30000, priority=4)
         self.timer_coalescer.register_task('thermal_check', interval_ms=3000, priority=7)
+        self.timer_coalescer.register_task('nvme_queue_adjustment', interval_ms=60000, priority=4)
+        self.timer_coalescer.register_task('cache_contention_check', interval_ms=10000, priority=5)
+        self.timer_coalescer.register_task('timer_resolution_adjust', interval_ms=5000, priority=6)
 
     def _query_cpu_topology(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -5521,12 +5533,25 @@ class UnifiedProcessManager:
                     self.network_flow_prioritizer.prioritize_foreground_traffic(pid)
                     self.network_optimizer.optimize_tcp_window_scaling()
                     
+                    self.adaptive_io_scheduler.prioritize_io(pid, is_interactive=is_latency_sensitive, is_foreground=True)
+                    io_pattern = self.adaptive_io_scheduler.detect_io_pattern(pid)
+                    if io_pattern:
+                        self.adaptive_io_scheduler.optimize_for_pattern(pid, io_pattern)
+                    
+                    self.advanced_memory_page_manager.analyze_working_set(pid)
+                    self.advanced_memory_page_manager.optimize_page_priority(pid, is_foreground=True)
+                    
+                    self.cache_topology_optimizer.assign_process_to_cache_group(pid, process_name, related_pids=self.get_process_children(pid), handle_cache=self.handle_cache)
+                    
                 else:
                     self.memory_priority_manager.set_memory_priority(pid, MEMORY_PRIORITY_LOW, is_foreground, 0)
                     self.heterogeneous_scheduler.classify_and_schedule_threads(pid, is_latency_sensitive=False)
                     if use_eco_qos:
                         self.memory_dedup_manager.enable_memory_compression(pid)
                         self.io_priority_inheritance.throttle_background_io(pid)
+                    
+                    self.adaptive_io_scheduler.prioritize_io(pid, is_interactive=False, is_foreground=False)
+                    self.advanced_memory_page_manager.optimize_page_priority(pid, is_foreground=False)
 
             except psutil.NoSuchProcess:
                 pass
@@ -5774,6 +5799,14 @@ class UnifiedProcessManager:
                 self._check_and_suspend_inactive_processes()
             elif task_name == 'thermal_check':
                 self.manage_thermal_throttling()
+            elif task_name == 'nvme_queue_adjustment':
+                system_load = psutil.cpu_percent(interval=0.1) / 100.0
+                self.adaptive_io_scheduler.adjust_nvme_queue_depth(system_load)
+            elif task_name == 'cache_contention_check':
+                active_pids = list(self.process_states.keys())
+                self.cache_topology_optimizer.detect_and_rebalance_contention(active_pids, self.handle_cache)
+            elif task_name == 'timer_resolution_adjust':
+                self.timer_coalescer.adjust_timer_resolution()
                 
             end_time = time.perf_counter()
             execution_time_ms = (end_time - start_time) * 1000
