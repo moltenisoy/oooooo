@@ -2942,7 +2942,7 @@ class EnhancedSystemResponsivenessOptimizer:
         with self.lock:
             return {'current_responsiveness': self.current_responsiveness, 'active_boosts': len(self.boosted_processes), 'total_responsiveness_changes': self.stats['responsiveness_changes'], 'total_priority_boosts': self.stats['priority_boosts'], 'total_background_throttles': self.stats['background_throttles'], 'estimated_overhead': 0.05}
 
-class ForegroundDebouncer:
+class ForegroundDebouncer(_LockStatsMixin):
     def __init__(self, debounce_time_ms=300, hysteresis_time_ms=150, whitelist_debounce_ms=150):
         self.debounce_time = debounce_time_ms / 1000.0
         self.hysteresis_time = hysteresis_time_ms / 1000.0
@@ -3030,7 +3030,7 @@ class ForegroundDebouncer:
             cancel_rate = self.stats['total_cancelled'] / self.stats['total_requests'] * 100 if self.stats['total_requests'] > 0 else 0
             return {**self.stats, 'cancel_rate_percent': cancel_rate, 'pending': self.pending_change is not None}
 
-class HeterogeneousThreadScheduler:
+class HeterogeneousThreadScheduler(_LockStatsMixin):
     def __init__(self, handle_cache, p_cores, e_cores):
         self.handle_cache = handle_cache
         self.p_cores = p_cores
@@ -3092,10 +3092,9 @@ class HeterogeneousThreadScheduler:
             return threads_scheduled > 0
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class InterruptAffinityOptimizer:
+class InterruptAffinityOptimizer(_LockStatsMixin):
     def __init__(self, e_cores):
         self.e_cores = e_cores
         self.lock = threading.RLock()
@@ -3123,10 +3122,9 @@ class InterruptAffinityOptimizer:
                 return False
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class KernelOptimizer:
+class KernelOptimizer(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.stats = {'optimizations_applied': 0}
@@ -3195,7 +3193,7 @@ class PowerManagementOptimizer:
             except:
                 return False
 
-class ProcessServiceManager:
+class ProcessServiceManager(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.database = {}
@@ -3253,10 +3251,9 @@ class ProcessServiceManager:
         return (False, None)
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class ProcessSnapshotEngine:
+class ProcessSnapshotEngine(_LockStatsMixin):
     def __init__(self, cache_ttl_ms=500):
         self.cache_ttl_ms = cache_ttl_ms
         self.last_snapshot_time = 0
@@ -3330,8 +3327,7 @@ class ProcessSnapshotEngine:
         return [info['pid'] for info in snapshot.values() if info['name'].lower() == process_name_lower]
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
 class ProcessSuspensionManager:
     __slots__ = ('suspended_processes', 'inactivity_threshold', 'lock', 'stats', 'suspension_decision_cache')
@@ -3391,7 +3387,7 @@ class ProcessSuspensionManager:
                     pass
             return False
 
-class ProcessTreeCache:
+class ProcessTreeCache(_LockStatsMixin):
     def __init__(self, rebuild_interval_ms=2000):
         self.rebuild_interval = rebuild_interval_ms / 1000.0
         self.last_rebuild = 0
@@ -3511,10 +3507,9 @@ class ProcessTreeCache:
             return build_subtree(root_pid)
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class RealtimePriorityManager:
+class RealtimePriorityManager(_LockStatsMixin):
     GLITCH_DETECTION_THRESHOLD = 0.001
     GLITCH_COUNT_THRESHOLD = 3
     
@@ -3568,7 +3563,7 @@ class RealtimePriorityManager:
                     pass
             return False
 
-class SMTScheduler:
+class SMTScheduler(_LockStatsMixin):
     def __init__(self, cpu_count):
         self.cpu_count = cpu_count
         self.lock = threading.RLock()
@@ -3640,10 +3635,9 @@ class SMTScheduler:
             return False
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class SettingsApplicator:
+class SettingsApplicator(_LockStatsMixin):
     def __init__(self, handle_cache, ctypes_pool=None):
         self.handle_cache = handle_cache
         self.ctypes_pool = ctypes_pool
@@ -3815,10 +3809,9 @@ class SettingsApplicator:
         return threads_set > 0
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class SystemResponsivenessController:
+class SystemResponsivenessController(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.current_value = 20
