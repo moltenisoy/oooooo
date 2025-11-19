@@ -183,6 +183,20 @@ QUOTA_LIMITS_HARDWS_MAX_ENABLE = 2
 
 SystemResponsivenessKey = r'SYSTEM\CurrentControlSet\Control\PriorityControl'
 
+class _LockStatsMixin:
+    def _init_lock_stats(self):
+        if not hasattr(self, 'lock'):
+            self.lock = threading.RLock()
+        if not hasattr(self, 'stats'):
+            self.stats = {}
+    
+    def _safe_lock_call(self, func, *args, **kwargs):
+        with self.lock:
+            return func(*args, **kwargs)
+    
+    def _get_stats_copy(self):
+        with self.lock:
+            return self.stats.copy()
 
 class PROCESS_POWER_THROTTLING_STATE(ctypes.Structure):
     _fields_ = [('Version', wintypes.ULONG),
@@ -668,7 +682,7 @@ class NCQOptimizer:
             except OSError:
                 pass
 
-class PrefetchOptimizer:
+class PrefetchOptimizer(_LockStatsMixin):
     def __init__(self, hardware_detector=None):
         self.lock = threading.RLock()
         self.prefetch_path = r'C:\Windows\Prefetch'
@@ -721,10 +735,9 @@ class PrefetchOptimizer:
             return False
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class StorageOptimizer:
+class StorageOptimizer(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.stats = {'optimizations_applied': 0, 'trim_scheduled': 0}
@@ -822,7 +835,7 @@ class WriteCoalescingManager:
                 return True
             return False
 
-class AWEManager:
+class AWEManager(_LockStatsMixin):
     def __init__(self, handle_cache):
         self.handle_cache = handle_cache
         self.lock = threading.RLock()
@@ -860,10 +873,9 @@ class AWEManager:
             return False
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class AdvancedMemoryPagePriorityManager:
+class AdvancedMemoryPagePriorityManager(_LockStatsMixin):
     def __init__(self, handle_cache):
         self.lock = threading.RLock()
         self.handle_cache = handle_cache
@@ -1328,7 +1340,7 @@ class MemoryDeduplicationManager:
             except (subprocess.SubprocessError, OSError):
                 return False
 
-class MemoryPriorityManager:
+class MemoryPriorityManager(_LockStatsMixin):
     def __init__(self, handle_cache):
         self.handle_cache = handle_cache
         self.lock = threading.RLock()
@@ -1373,10 +1385,9 @@ class MemoryPriorityManager:
             return False
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class MemoryScrubbingOptimizer:
+class MemoryScrubbingOptimizer(_LockStatsMixin):
     IDLE_CPU_THRESHOLD = 20
     SCRUB_INTERVAL = 3600
 
@@ -1763,7 +1774,7 @@ class TLBOptimizer:
                 pass
         return False
 
-class WorkingSetOptimizer:
+class WorkingSetOptimizer(_LockStatsMixin):
     def __init__(self, handle_cache):
         self.handle_cache = handle_cache
         self.trim_history = defaultdict(deque)
@@ -1897,10 +1908,9 @@ class WorkingSetOptimizer:
             }
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class AVXInstructionOptimizer:
+class AVXInstructionOptimizer(_LockStatsMixin):
     def __init__(self, handle_cache, cpu_count):
         self.lock = threading.RLock()
         self.handle_cache = handle_cache
@@ -2244,7 +2254,7 @@ class AutomaticProfileManager:
         with self.lock:
             return self.profiles.get(profile_name, self.profiles[self.current_profile])
 
-class CPUFrequencyScaler:
+class CPUFrequencyScaler(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.stats = {'turbo_enabled': 0, 'downclocking_enabled': 0, 'frequency_changes': 0}
@@ -2263,10 +2273,9 @@ class CPUFrequencyScaler:
             return True
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class CPUParkingController:
+class CPUParkingController(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.stats = {'total_parking_changes': 0, 'disabled_count': 0, 'enabled_count': 0}
@@ -2288,10 +2297,9 @@ class CPUParkingController:
             return True
 
     def get_statistics(self):
-        with self.lock:
-            return self.stats.copy()
+        return self._get_stats_copy()
 
-class CPUPinningEngine:
+class CPUPinningEngine(_LockStatsMixin):
     def __init__(self, handle_cache, cpu_count, numa_topology=None):
         self.handle_cache = handle_cache
         self.cpu_count = cpu_count
@@ -2597,7 +2605,7 @@ class CStatesOptimizer:
             self.c_states_disabled = False
             return True
 
-class ContextSwitchReducer:
+class ContextSwitchReducer(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.quantum_adjusted = False
@@ -2626,7 +2634,7 @@ class ContextSwitchReducer:
         with self.lock:
             return self.stats.copy()
 
-class DPCLatencyController:
+class DPCLatencyController(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.stats = {'dpc_optimizations': 0, 'latency_improvements': 0, 'monitoring_active': False}
@@ -2656,7 +2664,7 @@ class DPCLatencyController:
         with self.lock:
             return self.stats.copy()
 
-class DynamicMultiLayerProfileSystem:
+class DynamicMultiLayerProfileSystem(_LockStatsMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.current_scenario = 'browsing'
