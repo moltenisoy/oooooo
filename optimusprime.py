@@ -5079,6 +5079,9 @@ class UnifiedProcessManager:
         self.network_polling = NetworkPollingOptimizer()
         self.io_priority_inheritance = IOPriorityInheritance(self.handle_cache)
         self.thermal_scheduler = ThermalAwareScheduler(self.cpu_count, self.temp_monitor)
+        self.adaptive_io_scheduler = AdaptiveIOScheduler(self.handle_cache)
+        self.advanced_memory_page_manager = AdvancedMemoryPagePriorityManager(self.handle_cache)
+        self.cache_topology_optimizer = EnhancedCacheTopologyOptimizer(self.topology)
         
         self._registry_buffer = RegistryWriteBuffer()
         self._ctypes_pool = CTypesStructurePool()
@@ -5129,6 +5132,11 @@ class UnifiedProcessManager:
         
         if self.hardware_detector.has_nvme():
             self.ncq_optimizer.set_queue_depth_for_gaming(False)
+        
+        self.io_priority_inheritance.enable()
+        self.io_priority_inheritance.set_priority_levels(5)
+        self.io_priority_inheritance.enable_priority_boosting()
+        self.io_priority_inheritance.configure_inheritance_chain()
 
     def manage_thermal_throttling(self):
         if self.thermal_scheduler.predict_and_prevent_throttling():
@@ -5162,6 +5170,9 @@ class UnifiedProcessManager:
         self.timer_coalescer.register_task('decision_cache_cleanup', interval_ms=60000, priority=2)
         self.timer_coalescer.register_task('process_suspension_check', interval_ms=30000, priority=4)
         self.timer_coalescer.register_task('thermal_check', interval_ms=3000, priority=7)
+        self.timer_coalescer.register_task('nvme_queue_adjustment', interval_ms=60000, priority=4)
+        self.timer_coalescer.register_task('cache_contention_check', interval_ms=10000, priority=5)
+        self.timer_coalescer.register_task('timer_resolution_adjust', interval_ms=5000, priority=6)
 
     def _query_cpu_topology(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -5521,12 +5532,25 @@ class UnifiedProcessManager:
                     self.network_flow_prioritizer.prioritize_foreground_traffic(pid)
                     self.network_optimizer.optimize_tcp_window_scaling()
                     
+                    self.adaptive_io_scheduler.prioritize_io(pid, is_interactive=is_latency_sensitive, is_foreground=True)
+                    io_pattern = self.adaptive_io_scheduler.detect_io_pattern(pid)
+                    if io_pattern:
+                        self.adaptive_io_scheduler.optimize_for_pattern(pid, io_pattern)
+                    
+                    self.advanced_memory_page_manager.analyze_working_set(pid)
+                    self.advanced_memory_page_manager.optimize_page_priority(pid, is_foreground=True)
+                    
+                    self.cache_topology_optimizer.assign_process_to_cache_group(pid, process_name, related_pids=self.get_process_children(pid), handle_cache=self.handle_cache)
+                    
                 else:
                     self.memory_priority_manager.set_memory_priority(pid, MEMORY_PRIORITY_LOW, is_foreground, 0)
                     self.heterogeneous_scheduler.classify_and_schedule_threads(pid, is_latency_sensitive=False)
                     if use_eco_qos:
                         self.memory_dedup_manager.enable_memory_compression(pid)
                         self.io_priority_inheritance.throttle_background_io(pid)
+                    
+                    self.adaptive_io_scheduler.prioritize_io(pid, is_interactive=False, is_foreground=False)
+                    self.advanced_memory_page_manager.optimize_page_priority(pid, is_foreground=False)
 
             except psutil.NoSuchProcess:
                 pass
@@ -5774,6 +5798,14 @@ class UnifiedProcessManager:
                 self._check_and_suspend_inactive_processes()
             elif task_name == 'thermal_check':
                 self.manage_thermal_throttling()
+            elif task_name == 'nvme_queue_adjustment':
+                system_load = psutil.cpu_percent(interval=0.1) / 100.0
+                self.adaptive_io_scheduler.adjust_nvme_queue_depth(system_load)
+            elif task_name == 'cache_contention_check':
+                active_pids = list(self.process_states.keys())
+                self.cache_topology_optimizer.detect_and_rebalance_contention(active_pids, self.handle_cache)
+            elif task_name == 'timer_resolution_adjust':
+                self.timer_coalescer.adjust_timer_resolution()
                 
             end_time = time.perf_counter()
             execution_time_ms = (end_time - start_time) * 1000
