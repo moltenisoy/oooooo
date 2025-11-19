@@ -3617,7 +3617,6 @@ class SystemTrayManager:
         
         self.manager.trim_scheduler.set_gaming_mode(True)
         self.manager.ncq_optimizer.set_queue_depth_for_gaming(True)
-        self.manager.network_polling.enable_polling_mode(True)
 
     def _deactivate_game_mode(self):
         services_to_restore = ['WSearch', 'SysMain']
@@ -3629,7 +3628,6 @@ class SystemTrayManager:
         
         self.manager.trim_scheduler.set_gaming_mode(False)
         self.manager.ncq_optimizer.set_queue_depth_for_gaming(False)
-        self.manager.network_polling.enable_polling_mode(False)
 
     def increase_temp_threshold(self, icon, item):
         self.temp_monitor.increase_max_temp()
@@ -3677,9 +3675,6 @@ class SystemTrayManager:
             pass
 
     def exit_application(self, icon, item):
-        if self.manager and hasattr(self.manager, 'registry_buffer'):
-            self.manager.registry_buffer.flush()
-            
         self._revert_all_settings()
         self.running = False
         if self.temp_icon:
@@ -3692,7 +3687,6 @@ class SystemTrayManager:
             self._deactivate_game_mode()
             
         if self.manager:
-            self.manager.context_switch_reducer.adjust_quantum_time_slice(increase=False, registry_buffer=self.manager.registry_buffer)
             self.manager.cpu_frequency_scaler.set_turbo_mode(enable=False)
             
             services_to_restore = ['WSearch', 'SysMain', 'wuauserv']
@@ -3906,51 +3900,33 @@ class UnifiedProcessManager:
         self.memory_priority_manager = MemoryPriorityManager(self.handle_cache)
         self.process_service_manager = ProcessServiceManager()
         self.cpu_parking_controller = CPUParkingController()
-        self.heterogeneous_scheduler = HeterogeneousThreadScheduler(self.handle_cache, self.pe_core_sets.get('p_cores', []), self.pe_core_sets.get('e_cores', []))
-        self.context_switch_reducer = ContextSwitchReducer()
         self.smt_scheduler = SMTScheduler(self.cpu_count)
         self.cpu_frequency_scaler = CPUFrequencyScaler()
-        self.awe_manager = AWEManager(self.handle_cache)
         self.interrupt_affinity_optimizer = InterruptAffinityOptimizer(self.pe_core_sets.get('e_cores', []))
         self.dpc_latency_controller = DPCLatencyController()
         self.temp_monitor = CPUTemperatureMonitor()
         self.c_states_optimizer = CStatesOptimizer()
         self.storage_optimizer = StorageOptimizer()
-        self.network_optimizer = NetworkOptimizer()
         self.power_optimizer = PowerManagementOptimizer()
-        self.kernel_optimizer = KernelOptimizer()
         self.dynamic_priority_algo = DynamicPriorityAlgorithm(self.handle_cache)
         self.profile_manager = AutomaticProfileManager()
         self.numa_allocator = NUMAAwareMemoryAllocator()
         self.huge_pages_manager = DynamicHugePagesManager(self.handle_cache)
-        self.memory_dedup_manager = MemoryDeduplicationManager()
         self.realtime_priority_mgr = RealtimePriorityManager(self.handle_cache)
         self.readahead_manager = AdaptiveReadAheadManager()
-        self.write_coalescer = WriteCoalescingManager()
-        self.storage_tier_mgr = StorageTierManager()
-        self.disk_cache_tuner = DynamicDiskCacheTuner()
         self.network_flow_prioritizer = NetworkFlowPrioritizer()
-        self.tcp_congestion_tuner = TCPCongestionControlTuner()
-        self.network_interrupt_coalescer = NetworkInterruptCoalescer()
-        self.adaptive_polling_mgr = AdaptiveNetworkPollingManager()
-        self.timer_resolution_manager = AdaptiveTimerResolutionManager() # CORRECCIÓN 1: Instancia agregada
+        self.timer_resolution_manager = AdaptiveTimerResolutionManager()
         self.decision_cache = OptimizationDecisionCache(ttl_seconds=300)
         self.integrity_validator = IntegrityValidator(self.handle_cache)
         self.suspension_manager = ProcessSuspensionManager()
         self.responsiveness_controller = SystemResponsivenessController()
-        self.memory_scrubbing_optimizer = MemoryScrubbingOptimizer()
         self.ncq_optimizer = NCQOptimizer()
         self.trim_scheduler = IntelligentTRIMScheduler()
-        self.network_polling = NetworkPollingOptimizer()
         self.io_priority_inheritance = IOPriorityInheritance(self.handle_cache)
         self.thermal_scheduler = ThermalAwareScheduler(self.cpu_count, self.temp_monitor)
         self.adaptive_io_scheduler = AdaptiveIOScheduler(self.handle_cache)
         self.advanced_memory_page_manager = AdvancedMemoryPagePriorityManager(self.handle_cache)
         self.cache_topology_optimizer = EnhancedCacheTopologyOptimizer(self.topology)
-        
-        self._registry_buffer = RegistryWriteBuffer()
-        self._ctypes_pool = CTypesStructurePool()
-        self.settings_applicator.ctypes_pool = self.ctypes_pool
         
         self.load_whitelist()
         self.ram_monitor_active = True
@@ -3963,9 +3939,6 @@ class UnifiedProcessManager:
         
         self.blacklist_names = {'system', 'idle', 'smss.exe', 'csrss.exe', 'wininit.exe', 'winlogon.exe', 'services.exe', 'lsass.exe', 'svchost.exe', 'fontdrvhost.exe', 'registry', 'memcompression', 'sihost.exe', 'dwm.exe', 'ctfmon.exe', 'cmd.exe', 'python.exe', 'pythonw.exe', 'conhost.exe', 'taskmgr.exe', 'taskhostw.exe', 'runtimebroker.exe'}
         self.blacklist_contains = [r'\windows', 'defender', 'msmpeng.exe', 'wuauclt.exe', 'tiworker.exe']
-        self.blacklist_bloom = SimpleBloomFilter(expected_elements=len(self.blacklist_names) * 2)
-        for name in self.blacklist_names:
-            self.blacklist_bloom.add(name)
             
         self._apply_initial_optimizations()
 
@@ -3973,22 +3946,7 @@ class UnifiedProcessManager:
         self.c_states_optimizer.disable_deep_c_states()
         self.storage_optimizer.optimize_nvme_queue_depth()
         self.storage_optimizer.optimize_file_system_cache()
-        self.network_optimizer.optimize_tcp_window_scaling()
-        self.network_optimizer.configure_rss()
-        self.network_optimizer.disable_network_throttling()
         self.power_optimizer.disable_pcie_aspm()
-        self.kernel_optimizer.optimize_timer_resolution()
-        self.kernel_optimizer.increase_paged_pool_size()
-        TCPFastOpenOptimizer().enable_tcp_fast_open()
-        BBRCongestionControl().enable_bbr_algorithm()
-        AggressiveDNSCache().configure_dns_caching()
-        GPUSchedulingOptimizer().enable_hardware_gpu_scheduling()
-        PCIeBandwidthOptimizer().maximize_pcie_bandwidth()
-        DirectXVulkanOptimizer().optimize_rendering_performance()
-        
-        self.memory_scrubbing_optimizer.enable()
-        self.memory_scrubbing_optimizer.set_scrubbing_interval(60)
-        self.memory_scrubbing_optimizer.start_background_scrubbing()
         
         self.responsiveness_controller.set_for_performance()
         
@@ -4179,13 +4137,7 @@ class UnifiedProcessManager:
         except:
             self.whitelist = set()
 
-    @property
-    def registry_buffer(self):
-        return self._registry_buffer
 
-    @property
-    def ctypes_pool(self):
-        return self._ctypes_pool
 
     def _intern_process_name(self, name):
         if name not in self.interned_process_names:
@@ -4218,9 +4170,8 @@ class UnifiedProcessManager:
             p = psutil.Process(pid)
             name = self._intern_process_name(p.name().lower())
             
-            if self.blacklist_bloom.contains(name):
-                if name in self.blacklist_names:
-                    return True
+            if name in self.blacklist_names:
+                return True
 
             username = p.username()
             if username and username.lower().startswith(('nt authority', 'local service', 'network service')):
@@ -4381,21 +4332,16 @@ class UnifiedProcessManager:
                          workload = 'throughput'
                          
                     self.cpu_pinning.apply_intelligent_pinning(pid, cores, workload)
-                    self.heterogeneous_scheduler.classify_and_schedule_threads(pid, is_latency_sensitive)
                     
                     if is_latency_sensitive:
                         self.smt_scheduler.assign_to_physical_cores(pid)
                     
                     self.cpu_frequency_scaler.set_turbo_mode(enable=True)
                     
-                    if self.awe_manager.is_32bit_process(pid):
-                        self.awe_manager.enable_awe_for_process(pid)
-                    
                     self.huge_pages_manager.monitor_process(pid)
                     
                     self.memory_priority_manager.set_memory_priority(pid, MEMORY_PRIORITY_NORMAL, is_foreground, 0)
                     self.network_flow_prioritizer.prioritize_foreground_traffic(pid)
-                    self.network_optimizer.optimize_tcp_window_scaling()
                     
                     self.adaptive_io_scheduler.prioritize_io(pid, is_interactive=is_latency_sensitive, is_foreground=True)
                     io_pattern = self.adaptive_io_scheduler.detect_io_pattern(pid)
@@ -4409,9 +4355,7 @@ class UnifiedProcessManager:
                     
                 else:
                     self.memory_priority_manager.set_memory_priority(pid, MEMORY_PRIORITY_LOW, is_foreground, 0)
-                    self.heterogeneous_scheduler.classify_and_schedule_threads(pid, is_latency_sensitive=False)
                     if use_eco_qos:
-                        self.memory_dedup_manager.enable_memory_compression(pid)
                         self.io_priority_inheritance.throttle_background_io(pid)
                     
                     self.adaptive_io_scheduler.prioritize_io(pid, is_interactive=False, is_foreground=False)
@@ -4677,11 +4621,8 @@ class UnifiedProcessManager:
             self.timer_coalescer.mark_executed(task_name, execution_time_ms)
 
     def run(self):
-        self.context_switch_reducer.adjust_quantum_time_slice(increase=True, registry_buffer=self.registry_buffer)
         self.interrupt_affinity_optimizer.optimize_interrupt_affinity()
         self.dpc_latency_controller.optimize_dpc_latency()
-        self.network_interrupt_coalescer.optimize_interrupt_coalescing()
-        self.tcp_congestion_tuner.detect_and_tune()
         
         gc.disable()
         iteration_count = 0
@@ -4692,11 +4633,9 @@ class UnifiedProcessManager:
                 iteration_count += 1
                 
                 if iteration_count % 100 == 0:
-                     self.tcp_congestion_tuner.detect_and_tune()
                      gc.collect(generation=0)
                      self.trim_scheduler.execute_trim()
                      self.integrity_validator.process_batch_validations()
-                     self._registry_buffer.flush()
                 
                 time.sleep(self.timer_coalescer.get_next_wake_time())
         except KeyboardInterrupt:
